@@ -6,7 +6,7 @@ image = (
     .apt_install("libpango-1.0-0", "libpangoft2-1.0-0", "libgdk-pixbuf2.0-0", "libffi-dev", "shared-mime-info")
     .pip_install_from_requirements("requirements.txt")
     .env({"FRONTEND_DIR": "/app/frontend"})
-    .add_local_python_source("backend", "intel_agent", "api")
+    .add_local_python_source("backend")
     .add_local_dir("frontend", remote_path="/app/frontend")
 )
 
