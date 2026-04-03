@@ -1,0 +1,679 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Crypto Report Agent</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg:        #0d0f14;
+      --surface:   #161a22;
+      --border:    #2a2f3d;
+      --text:      #e2e8f0;
+      --muted:     #64748b;
+      --accent:    #6366f1;
+      --accent-hover: #4f52d6;
+      --green:     #22c55e;
+      --yellow:    #eab308;
+      --red:       #ef4444;
+      --blue:      #3b82f6;
+    }
+
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 2rem 1rem;
+    }
+
+    /* ── Views ─────────────────────────────────────────────── */
+    .view { display: none; width: 100%; max-width: 720px; }
+    .view.active { display: block; }
+
+    /* ── Card ──────────────────────────────────────────────── */
+    .card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      padding: 2.5rem 2rem;
+    }
+
+    /* ── Landing ────────────────────────────────────────────── */
+    #landing h1 {
+      font-size: 1.6rem;
+      font-weight: 700;
+      letter-spacing: -0.02em;
+      margin-bottom: 0.4rem;
+    }
+    #landing p {
+      color: var(--muted);
+      font-size: 0.9rem;
+      margin-bottom: 2rem;
+    }
+    .input-row {
+      display: flex;
+      gap: 0.75rem;
+    }
+    input[type="text"] {
+      flex: 1;
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      color: var(--text);
+      font-size: 0.95rem;
+      padding: 0.65rem 1rem;
+      outline: none;
+      transition: border-color 0.15s;
+      text-transform: uppercase;
+    }
+    input[type="text"]:focus { border-color: var(--accent); }
+    input[type="text"]::placeholder { color: var(--muted); text-transform: none; }
+
+    button {
+      background: var(--accent);
+      border: none;
+      border-radius: 8px;
+      color: #fff;
+      cursor: pointer;
+      font-size: 0.9rem;
+      font-weight: 600;
+      padding: 0.65rem 1.4rem;
+      transition: background 0.15s, opacity 0.15s;
+      white-space: nowrap;
+    }
+    button:hover:not(:disabled) { background: var(--accent-hover); }
+    button:disabled { opacity: 0.5; cursor: not-allowed; }
+
+    /* ── Progress ───────────────────────────────────────────── */
+    #progress h2 {
+      font-size: 1.25rem;
+      font-weight: 700;
+      margin-bottom: 0.25rem;
+    }
+    #progress .subtitle {
+      color: var(--muted);
+      font-size: 0.85rem;
+      margin-bottom: 2rem;
+      min-height: 1.2em;
+    }
+
+    .steps { list-style: none; margin-bottom: 2rem; }
+    .steps li {
+      display: flex;
+      align-items: center;
+      gap: 0.85rem;
+      padding: 0.55rem 0;
+      font-size: 0.9rem;
+      color: var(--muted);
+      transition: color 0.2s;
+    }
+    .steps li.done  { color: var(--text); }
+    .steps li.active { color: var(--text); }
+
+    .step-icon {
+      width: 22px;
+      height: 22px;
+      border-radius: 50%;
+      border: 2px solid var(--border);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 11px;
+      flex-shrink: 0;
+      transition: all 0.2s;
+    }
+    .steps li.done  .step-icon { background: var(--green); border-color: var(--green); color: #fff; }
+    .steps li.active .step-icon {
+      border-color: var(--accent);
+      animation: pulse 1.2s ease-in-out infinite;
+    }
+
+    @keyframes pulse {
+      0%, 100% { box-shadow: 0 0 0 0 rgba(99,102,241,0.4); }
+      50%       { box-shadow: 0 0 0 5px rgba(99,102,241,0); }
+    }
+
+    .progress-bar-wrap {
+      background: var(--bg);
+      border-radius: 99px;
+      height: 6px;
+      overflow: hidden;
+    }
+    .progress-bar-fill {
+      background: var(--accent);
+      height: 100%;
+      border-radius: 99px;
+      width: 0%;
+      transition: width 0.4s ease;
+    }
+    .progress-label {
+      color: var(--muted);
+      font-size: 0.78rem;
+      margin-top: 0.5rem;
+      text-align: right;
+    }
+
+    .error-box {
+      background: rgba(239,68,68,0.1);
+      border: 1px solid rgba(239,68,68,0.3);
+      border-radius: 8px;
+      color: var(--red);
+      font-size: 0.85rem;
+      margin-top: 1.5rem;
+      padding: 0.75rem 1rem;
+      display: none;
+    }
+
+    /* ── Report view ────────────────────────────────────────── */
+    .report-header {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 1rem;
+      margin-bottom: 0.75rem;
+      flex-wrap: wrap;
+    }
+    .report-title {
+      font-size: 1.4rem;
+      font-weight: 700;
+    }
+    .report-meta {
+      color: var(--muted);
+      font-size: 0.82rem;
+      margin-top: 0.25rem;
+    }
+
+    .rating-badge {
+      border-radius: 8px;
+      font-size: 0.85rem;
+      font-weight: 800;
+      letter-spacing: 0.06em;
+      padding: 0.4rem 1rem;
+      text-transform: uppercase;
+      white-space: nowrap;
+    }
+    .badge-BUY   { background: rgba(34,197,94,0.15);  color: var(--green); }
+    .badge-HOLD  { background: rgba(99,102,241,0.15); color: var(--accent); }
+    .badge-SELL  { background: rgba(234,179,8,0.15);  color: var(--yellow); }
+    .badge-AVOID { background: rgba(239,68,68,0.15);  color: var(--red); }
+
+    .price-target {
+      font-family: monospace;
+      font-size: 0.85rem;
+      color: var(--muted);
+      margin-bottom: 1.5rem;
+    }
+    .price-target span { color: var(--text); font-weight: 600; }
+
+    /* Score bars */
+    .scores { margin: 0 0 1.75rem; }
+    .scores h2 {
+      font-size: 0.75rem;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: var(--muted);
+      margin-bottom: 0.75rem;
+    }
+    .score-row {
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+      margin: 0.45rem 0;
+    }
+    .score-label {
+      width: 130px;
+      font-size: 0.8rem;
+      color: var(--muted);
+      flex-shrink: 0;
+    }
+    .score-track {
+      flex: 1;
+      background: var(--bg);
+      border-radius: 99px;
+      height: 8px;
+      overflow: hidden;
+    }
+    .score-fill {
+      height: 100%;
+      border-radius: 99px;
+      transition: width 0.6s ease;
+    }
+    .score-num {
+      width: 28px;
+      text-align: right;
+      font-family: monospace;
+      font-size: 0.8rem;
+      color: var(--text);
+    }
+
+    /* Report sections */
+    .report-section { margin: 1.5rem 0; }
+    .report-section h2 {
+      font-size: 0.75rem;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: var(--muted);
+      border-bottom: 1px solid var(--border);
+      padding-bottom: 0.4rem;
+      margin-bottom: 0.75rem;
+    }
+    .report-section p {
+      font-size: 0.875rem;
+      line-height: 1.75;
+      color: #b0bac8;
+    }
+
+    .highlight-box {
+      background: #0f172a;
+      border-left: 3px solid var(--accent);
+      border-radius: 0 6px 6px 0;
+      padding: 0.85rem 1.1rem;
+    }
+    .highlight-box p { color: var(--text); }
+
+    .two-col {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 1rem;
+      margin: 1.5rem 0;
+    }
+    @media (max-width: 560px) { .two-col { grid-template-columns: 1fr; } }
+
+    .case-box {
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 1rem;
+    }
+    .case-box h3 {
+      font-size: 0.75rem;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      margin-bottom: 0.6rem;
+    }
+    .bull h3 { color: var(--green); }
+    .bear h3 { color: var(--red); }
+    .case-box p { font-size: 0.82rem; line-height: 1.65; color: #b0bac8; }
+
+    .risks-list {
+      list-style: none;
+      padding: 0;
+    }
+    .risks-list li {
+      font-size: 0.85rem;
+      line-height: 1.6;
+      color: #b0bac8;
+      padding: 0.3rem 0 0.3rem 1.25rem;
+      position: relative;
+    }
+    .risks-list li::before {
+      content: "▸";
+      position: absolute;
+      left: 0;
+      color: var(--red);
+    }
+
+    .action-row {
+      display: flex;
+      gap: 0.75rem;
+      margin-top: 2rem;
+      flex-wrap: wrap;
+    }
+    .btn-secondary {
+      background: transparent;
+      border: 1px solid var(--border);
+      color: var(--text);
+    }
+    .btn-secondary:hover:not(:disabled) { background: var(--border); }
+
+    .data-sources {
+      display: flex;
+      gap: 0.5rem;
+      flex-wrap: wrap;
+      margin-bottom: 1.5rem;
+    }
+    .source-pill {
+      font-size: 0.72rem;
+      padding: 0.2rem 0.55rem;
+      border-radius: 99px;
+      font-family: monospace;
+    }
+    .source-ok   { background: rgba(34,197,94,0.12); color: var(--green); border: 1px solid rgba(34,197,94,0.25); }
+    .source-miss { background: rgba(100,116,139,0.1); color: var(--muted); border: 1px solid var(--border); }
+  </style>
+</head>
+<body>
+
+<!-- ── VIEW 1: Landing ─────────────────────────────────────── -->
+<div id="landing" class="view active">
+  <div class="card">
+    <h1>Crypto Report Agent</h1>
+    <p>Institutional-grade research reports — on-chain metrics, sentiment, market structure, and macro analysis — generated by a multi-agent AI pipeline.</p>
+    <form id="search-form" class="input-row" onsubmit="return false;">
+      <input id="query-input" type="text" placeholder="BTC, ETH, SOL..." autocomplete="off" maxlength="10" />
+      <button id="search-btn" type="submit">Generate Report</button>
+    </form>
+  </div>
+</div>
+
+<!-- ── VIEW 2: Progress ────────────────────────────────────── -->
+<div id="progress" class="view">
+  <div class="card">
+    <h2 id="prog-title">Analyzing…</h2>
+    <p class="subtitle" id="prog-subtitle">Initializing pipeline</p>
+    <ul class="steps" id="steps-list">
+      <li id="step-1" class="step">
+        <span class="step-icon">1</span>
+        <span>Planning research strategy</span>
+      </li>
+      <li id="step-2" class="step">
+        <span class="step-icon">2</span>
+        <span>Fetching market data (4 agents)</span>
+      </li>
+      <li id="step-3" class="step">
+        <span class="step-icon">3</span>
+        <span>Synthesizing report</span>
+      </li>
+      <li id="step-4" class="step">
+        <span class="step-icon">4</span>
+        <span>Critic review &amp; revision</span>
+      </li>
+      <li id="step-5" class="step">
+        <span class="step-icon">5</span>
+        <span>Rendering final report</span>
+      </li>
+    </ul>
+    <div class="progress-bar-wrap">
+      <div class="progress-bar-fill" id="prog-bar"></div>
+    </div>
+    <div class="progress-label" id="prog-label">0 / 5 complete</div>
+    <div class="error-box" id="error-box"></div>
+  </div>
+</div>
+
+<!-- ── VIEW 3: Report ──────────────────────────────────────── -->
+<div id="report-view" class="view">
+  <div class="card">
+    <div id="report-body"></div>
+  </div>
+</div>
+
+<script>
+  // ── View switching ─────────────────────────────────────────
+  function show(id) {
+    document.querySelectorAll(".view").forEach(v => v.classList.remove("active"));
+    document.getElementById(id).classList.add("active");
+  }
+
+  // ── Reset ──────────────────────────────────────────────────
+  function reset() {
+    for (let i = 1; i <= 5; i++) {
+      const li = document.getElementById(`step-${i}`);
+      li.className = "step";
+      li.querySelector(".step-icon").textContent = i;
+    }
+    document.getElementById("prog-bar").style.width = "0%";
+    document.getElementById("prog-label").textContent = "0 / 5 complete";
+    document.getElementById("error-box").style.display = "none";
+    document.getElementById("prog-title").textContent = "Analyzing…";
+    document.getElementById("prog-subtitle").textContent = "Initializing pipeline";
+    document.getElementById("query-input").value = "";
+    document.getElementById("search-btn").disabled = false;
+    show("landing");
+  }
+
+  // ── Step helpers ───────────────────────────────────────────
+  let currentStep = 0;
+
+  function advanceTo(n) {
+    if (n <= currentStep) return;
+    // Mark previous steps done
+    for (let i = currentStep; i < n - 1; i++) setStepDone(i + 1);
+    setStepActive(n);
+    currentStep = n;
+    const pct = ((n - 1) / 5) * 100;
+    document.getElementById("prog-bar").style.width = pct + "%";
+    document.getElementById("prog-label").textContent = `${n - 1} / 5 complete`;
+  }
+
+  function setStepActive(n) {
+    const li = document.getElementById(`step-${n}`);
+    if (!li) return;
+    li.className = "step active";
+    li.querySelector(".step-icon").textContent = "⟳";
+  }
+
+  function setStepDone(n) {
+    const li = document.getElementById(`step-${n}`);
+    if (!li) return;
+    li.className = "step done";
+    li.querySelector(".step-icon").textContent = "✓";
+  }
+
+  function allStepsDone() {
+    for (let i = 1; i <= 5; i++) setStepDone(i);
+    document.getElementById("prog-bar").style.width = "100%";
+    document.getElementById("prog-label").textContent = "5 / 5 complete";
+  }
+
+  // ── Map progress message → pipeline step ───────────────────
+  function messageToStep(msg) {
+    if (msg.startsWith("[orchestrator]"))     return 1;
+    if (msg.startsWith("[parallel_research]")) return 2;
+    if (msg.match(/^\[(onchain|sentiment|market|macro)\]/)) return 2;
+    if (msg.startsWith("[synthesizer]"))      return 3;
+    if (msg.match(/^\[(critic|revise)\]/))    return 4;
+    if (msg.startsWith("[renderer]"))         return 5;
+    return null;
+  }
+
+  // ── Score bar helper ───────────────────────────────────────
+  function scoreBar(label, value) {
+    const v = value ?? 0;
+    const color = v >= 70 ? "var(--green)" : v >= 40 ? "var(--yellow)" : "var(--red)";
+    return `
+      <div class="score-row">
+        <span class="score-label">${label}</span>
+        <div class="score-track">
+          <div class="score-fill" style="width:${v}%; background:${color};"></div>
+        </div>
+        <span class="score-num">${v}</span>
+      </div>`;
+  }
+
+  // ── Render completed report ────────────────────────────────
+  function renderReport(report, reportId, pdfAvailable) {
+    if (!report || report.raw_draft) {
+      // Fallback: show raw text if structured parsing failed
+      document.getElementById("report-body").innerHTML = `
+        <div class="report-section">
+          <h2>Report</h2>
+          <pre style="white-space:pre-wrap;font-size:0.8rem;color:var(--muted)">${
+            (report?.raw_draft || "No report data available").replace(/</g, "&lt;")
+          }</pre>
+        </div>
+        <div class="action-row">
+          <button onclick="reset()">Analyze Another</button>
+        </div>`;
+      return;
+    }
+
+    const rating     = report.rating || "HOLD";
+    const scores     = report.composite_scores || {};
+    const pt         = report.price_target_range || {};
+    const sources    = report.data_sources || {};
+    const confidence = report.confidence || "low";
+    const coin       = report.coin || "";
+
+    const badgeClass = `rating-badge badge-${rating}`;
+
+    const sourcePills = Object.entries(sources).map(([k, v]) => {
+      const label = k.replace("_available", "").replace("_", " ");
+      return `<span class="source-pill ${v ? "source-ok" : "source-miss"}">${label}</span>`;
+    }).join("");
+
+    const riskItems = (report.key_risks || [])
+      .map(r => `<li>${r}</li>`).join("");
+
+    const ptText = (pt.low && pt.high)
+      ? `<span>$${Number(pt.low).toLocaleString()}</span> – <span>$${Number(pt.high).toLocaleString()}</span> <span style="color:var(--muted)">(${pt.timeframe || "90d"})</span>`
+      : "Unavailable";
+
+    const section = (title, content) => content ? `
+      <div class="report-section">
+        <h2>${title}</h2>
+        <p>${content}</p>
+      </div>` : "";
+
+    const highlightSection = (title, content) => content ? `
+      <div class="report-section">
+        <h2>${title}</h2>
+        <div class="highlight-box"><p>${content}</p></div>
+      </div>` : "";
+
+    const pdfBtn = pdfAvailable
+      ? `<a href="/report/${reportId}/pdf" download style="text-decoration:none;">
+           <button class="btn-secondary">Download PDF</button>
+         </a>`
+      : "";
+
+    document.getElementById("report-body").innerHTML = `
+      <div class="report-header">
+        <div>
+          <div class="report-title">${coin} Research Report</div>
+          <div class="report-meta">Confidence: ${confidence} &nbsp;|&nbsp; ${report.generated_at ? report.generated_at.slice(0, 10) : ""}</div>
+        </div>
+        <span class="${badgeClass}">${rating}</span>
+      </div>
+
+      <div class="price-target">Price Target: ${ptText}</div>
+
+      <div class="data-sources">${sourcePills}</div>
+
+      <div class="scores">
+        <h2>Composite Scores</h2>
+        ${scoreBar("Onchain Health",   scores.onchain_health)}
+        ${scoreBar("Sentiment",        scores.sentiment)}
+        ${scoreBar("Market Structure", scores.market_structure)}
+        ${scoreBar("Macro",            scores.macro)}
+        ${scoreBar("Overall",          scores.overall)}
+      </div>
+
+      ${highlightSection("Executive Summary", report.executive_summary)}
+
+      ${section("Onchain Analysis",    report.onchain_analysis)}
+      ${section("Sentiment Analysis",  report.sentiment_analysis)}
+      ${section("Market Analysis",     report.market_analysis)}
+      ${section("Macro Analysis",      report.macro_analysis)}
+      ${section("Comparable Analysis", report.comparable_analysis)}
+
+      <div class="two-col">
+        <div class="case-box bull">
+          <h3>Bull Case</h3>
+          <p>${report.bull_case || ""}</p>
+        </div>
+        <div class="case-box bear">
+          <h3>Bear Case</h3>
+          <p>${report.bear_case || ""}</p>
+        </div>
+      </div>
+
+      <div class="report-section">
+        <h2>Key Risks</h2>
+        <ul class="risks-list">${riskItems}</ul>
+      </div>
+
+      ${highlightSection("Conclusion", report.conclusion)}
+
+      <div class="action-row">
+        <button onclick="reset()">Analyze Another</button>
+        ${pdfBtn}
+      </div>`;
+  }
+
+  // ── Main submit ────────────────────────────────────────────
+  document.getElementById("search-form").addEventListener("submit", async () => {
+    const coin = document.getElementById("query-input").value.trim().toUpperCase();
+    if (!coin) return;
+
+    document.getElementById("search-btn").disabled = true;
+    currentStep = 0;
+    document.getElementById("prog-title").textContent = `Analyzing ${coin}…`;
+    show("progress");
+
+    let reportId;
+
+    try {
+      // Step 1: POST /report → get report_id
+      const init = await fetch("/report", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ coin, depth: "standard" }),
+      });
+      if (!init.ok) throw new Error(`POST /report failed: ${init.status}`);
+      const initData = await init.json();
+      reportId = initData.report_id;
+    } catch (err) {
+      showError(`Failed to start report: ${err.message}`);
+      return;
+    }
+
+    // Step 2: subscribe to SSE stream via native EventSource (GET endpoint)
+    await new Promise((resolve, reject) => {
+      const source = new EventSource(`/report/${reportId}/stream`);
+
+      source.onmessage = (ev) => {
+        if (!ev.data) return;
+        let data;
+        try { data = JSON.parse(ev.data); } catch { return; }
+
+        if (data.type === "progress") {
+          const msg = data.message || "";
+          document.getElementById("prog-subtitle").textContent = msg.replace(/^\[.*?\]\s*/, "");
+          const step = messageToStep(msg);
+          if (step) advanceTo(step);
+        }
+
+        if (data.type === "complete") {
+          source.close();
+          allStepsDone();
+          fetch(`/report/${reportId}`)
+            .then(r => r.json())
+            .then(state => {
+              renderReport(state.final_report, reportId, state.pdf_available);
+              show("report-view");
+              resolve();
+            })
+            .catch(err => { showError(`Failed to load report: ${err.message}`); resolve(); });
+        }
+
+        if (data.type === "error") {
+          source.close();
+          showError(data.message || "Report generation failed");
+          resolve();
+        }
+      };
+
+      source.onerror = () => {
+        source.close();
+        showError("Connection lost. Please try again.");
+        resolve();
+      };
+    });
+  });
+
+  function showError(msg) {
+    const box = document.getElementById("error-box");
+    box.textContent = msg;
+    box.style.display = "block";
+    document.getElementById("search-btn").disabled = false;
+  }
+</script>
+</body>
+</html>

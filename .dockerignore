@@ -1,0 +1,10 @@
+.env
+.env.*
+wallet/
+test_agent/
+__pycache__/
+*.pyc
+*.pyo
+.git/
+*.md
+.claude/

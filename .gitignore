@@ -1,0 +1,27 @@
+# Secrets — never commit
+.env
+*.pem
+*.key
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+.venv/
+venv/
+*.egg-info/
+
+# Reports output
+/tmp/reports/
+btc_report.pdf
+btc_report.json
+*.pdf
+*.json
+
+# Wallet — never commit
+wallet/
+
+# IDE
+.DS_Store
+.vscode/
+.idea/
